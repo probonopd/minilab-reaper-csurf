@@ -1,0 +1,52 @@
+name: Linux CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  linux-x86_64:
+    name: Linux x86_64
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build-x86_64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-x86_64 --parallel
+
+      - name: Test
+        run: ctest --test-dir build-x86_64 --output-on-failure
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-x86_64-artifacts
+          path: |
+            build-x86_64/minilab_reaper_surface_tests
+            build-x86_64/reaper_csurf_minilab.so
+
+  linux-aarch64:
+    name: Linux aarch64
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure CMake
+        run: cmake -S . -B build-aarch64 -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build
+        run: cmake --build build-aarch64 --parallel
+
+      - name: Test
+        run: ctest --test-dir build-aarch64 --output-on-failure
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-aarch64-artifacts
+          path: |
+            build-aarch64/minilab_reaper_surface_tests
+            build-aarch64/reaper_csurf_minilab.so

@@ -1,0 +1,25 @@
+# Build outputs
+/build/
+/build-*/
+*.o
+*.so
+*.a
+*.dylib
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+
+# Test artifacts
+Testing/
+
+# Editor / OS junk
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Local REAPER runtime cache
+~/.config/REAPER/
