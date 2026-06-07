@@ -6,6 +6,9 @@
 #include "minilab_reaper_extension.hpp"
 #include "reaper_plugin.h"
 
+#undef min
+#undef max
+
 namespace minilab {
 
 bool matchesMidiPortName(const char* name, const std::vector<std::string>& hints);
