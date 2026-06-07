@@ -11,6 +11,15 @@ namespace minilab {
 bool matchesMidiPortName(const char* name, const std::vector<std::string>& hints);
 bool findMidiPortByHints(const std::vector<std::string>& hints, int* index_out, bool want_input);
 
+template <typename TrackState>
+void applyExclusiveTrackState(std::vector<TrackState>& tracks, MediaTrack* target, bool arm_target) {
+  for (TrackState& track : tracks) {
+    const bool is_target = (track.track == target);
+    track.selected = is_target;
+    track.armed = is_target && arm_target;
+  }
+}
+
 class MiniLabReaperControlSurface : public IReaperControlSurface {
  public:
   MiniLabReaperControlSurface() = default;

@@ -70,6 +70,27 @@ int main() {
   ok &= minilab::matchesMidiPortName("Arturia MiniLab 3 MIDI", {"arturia", "minilab"});
   std::cout << (ok ? "PASS: port matcher" : "FAIL: port matcher") << "\n";
 
+  struct FakeTrackState {
+    MediaTrack* track = nullptr;
+    bool selected = false;
+    bool armed = false;
+  };
+
+  std::vector<FakeTrackState> track_states = {
+      {reinterpret_cast<MediaTrack*>(1), false, false},
+      {reinterpret_cast<MediaTrack*>(2), false, true},
+      {reinterpret_cast<MediaTrack*>(3), true, false},
+  };
+
+  minilab::applyExclusiveTrackState(track_states,
+                                     reinterpret_cast<MediaTrack*>(2),
+                                     true);
+
+  ok &= !track_states[0].selected && !track_states[0].armed;
+  ok &= track_states[1].selected && track_states[1].armed;
+  ok &= !track_states[2].selected && !track_states[2].armed;
+  std::cout << (ok ? "PASS: exclusive track state" : "FAIL: exclusive track state") << "\n";
+
   minilab::MiniLabReaperControlSurface wrapper;
   wrapper.SetSurfaceVolume(nullptr, -6.3);
   ok &= wrapper.displayState().line1 == "Volume";

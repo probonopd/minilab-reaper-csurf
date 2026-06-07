@@ -1,5 +1,6 @@
 #include "minilab_reaper_plugin.hpp"
 
+#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -66,13 +67,45 @@ std::string safeTrackName(MediaTrack* track) {
   return "Lead Vocal";
 }
 
-void logMidiEvent(const char* direction, const uint8_t* data, int size) {
+std::string midiPortName(int index, bool want_input) {
+  if (index < 0) {
+    return {};
+  }
+
+  char buf[256] = {};
+  if (want_input) {
+    if (GetMIDIInputNameNoAlias && GetMIDIInputNameNoAlias(index, buf, sizeof(buf))) {
+      return buf;
+    }
+    if (GetMIDIInputName && GetMIDIInputName(index, buf, sizeof(buf))) {
+      return buf;
+    }
+  } else {
+    if (GetMIDIOutputNameNoAlias && GetMIDIOutputNameNoAlias(index, buf, sizeof(buf))) {
+      return buf;
+    }
+    if (GetMIDIOutputName && GetMIDIOutputName(index, buf, sizeof(buf))) {
+      return buf;
+    }
+  }
+
+  return {};
+}
+
+void logMidiEvent(const char* direction, const uint8_t* data, int size, bool want_input) {
   if (!data || size <= 0) {
     return;
   }
 
+  const int device_index = want_input ? g_midi_input_device
+                                      : (g_midi_display_output ? g_midi_display_output_device : g_midi_output_device);
+  const std::string port_name = midiPortName(device_index, want_input);
+
   const auto emit = [&](FILE* stream) {
     std::fprintf(stream, "[minilab-midi] %s", direction);
+    if (!port_name.empty()) {
+      std::fprintf(stream, " [%s]", port_name.c_str());
+    }
     for (int i = 0; i < size; ++i) {
       std::fprintf(stream, " %02X", static_cast<unsigned int>(data[i]));
     }
@@ -94,7 +127,7 @@ void sendSysEx(const std::vector<uint8_t>& packet) {
     return;
   }
 
-  logMidiEvent("OUT", packet.data(), static_cast<int>(packet.size()));
+  logMidiEvent("OUT", packet.data(), static_cast<int>(packet.size()), false);
 
   MIDI_event_t evt{};
   evt.frame_offset = -1;
@@ -133,6 +166,9 @@ bool collectMidiPortCandidates(const std::vector<std::string>& hints, std::vecto
 
   out_indices->clear();
   const int count = want_input ? GetNumMIDIInputs() : GetNumMIDIOutputs();
+  std::vector<std::pair<int, int>> scored_candidates;
+  const bool prefer_explicit_display = std::find(hints.begin(), hints.end(), "0,3") != hints.end();
+
   for (int i = 0; i < count; ++i) {
     char buf[256] = {};
     bool ok = false;
@@ -151,10 +187,25 @@ bool collectMidiPortCandidates(const std::vector<std::string>& hints, std::vecto
       }
     }
 
-    if (ok && matchesMidiPortName(buf, hints)) {
-      out_indices->push_back(i);
+    if (!ok || !matchesMidiPortName(buf, hints)) {
+      continue;
     }
+
+    int score = 0;
+    if (prefer_explicit_display && containsIgnoreCase(buf, "0,3")) {
+      score += 100;
+    }
+    scored_candidates.emplace_back(i, score);
   }
+
+  std::stable_sort(scored_candidates.begin(), scored_candidates.end(), [](const auto& lhs, const auto& rhs) {
+    return lhs.second > rhs.second;
+  });
+
+  for (const auto& candidate : scored_candidates) {
+    out_indices->push_back(candidate.first);
+  }
+
   return !out_indices->empty();
 }
 
@@ -222,7 +273,12 @@ void selectTrackRelative(int delta) {
   const int next = current_index < 0 ? 0 : (current_index + delta + total) % total;
   MediaTrack* tr = GetTrack(0, next);
   if (tr) {
-    SetTrackSelected(tr, true);
+    for (int i = 0; i < total; ++i) {
+      MediaTrack* candidate = GetTrack(0, i);
+      if (candidate) {
+        SetTrackSelected(candidate, candidate == tr);
+      }
+    }
     refreshDisplay(tr);
   }
 }
@@ -318,6 +374,23 @@ void armSelectedTrack() {
     return;
   }
 
+  const int total = CountTracks(0);
+  for (int i = 0; i < total; ++i) {
+    MediaTrack* candidate = GetTrack(0, i);
+    if (!candidate || candidate == tr) {
+      continue;
+    }
+
+    SetTrackSelected(candidate, false);
+    if (CSurf_OnRecArmChange) {
+      CSurf_OnRecArmChange(candidate, -1);
+    }
+    if (CSurf_SetSurfaceRecArm) {
+      CSurf_SetSurfaceRecArm(candidate, false, nullptr);
+    }
+  }
+
+  SetTrackSelected(tr, true);
   if (CSurf_OnRecArmChange) {
     CSurf_OnRecArmChange(tr, -1);
   }
@@ -419,7 +492,7 @@ void MiniLabReaperControlSurface::Run() {
   MIDI_event_t* evt = nullptr;
   while ((evt = list->EnumItems(&pos))) {
     if (evt->size > 0) {
-      logMidiEvent("IN ", evt->midi_message, evt->size);
+      logMidiEvent("IN ", evt->midi_message, evt->size, true);
     }
 
     if (evt->size >= 2 && (evt->midi_message[0] & 0xF0) == 0xB0) {
@@ -457,7 +530,7 @@ IReaperControlSurface* createSurface(const char* type_string, const char* config
     *err_stats = 0;
   }
 
-  if (type_string && std::strcmp(type_string, "MINILAB3") == 0) {
+  if (type_string && strcmp(type_string, "MINILAB3") == 0) {
     return new minilab::MiniLabReaperControlSurface();
   }
 
