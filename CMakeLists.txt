@@ -24,7 +24,7 @@ add_library(minilab_reaper_plugin SHARED
   src/minilab_reaper_extension.cpp
   src/minilab_reaper_surface.cpp
   src/minilab_midi_handler.cpp
-  sdk/reaper-sdk/WDL/swell/swell-modstub-generic.cpp
+  sdk/WDL/WDL/swell/swell-modstub-generic.cpp
 )
 
 target_include_directories(minilab_reaper_plugin PRIVATE src ${REAPER_SDK_DIR})
