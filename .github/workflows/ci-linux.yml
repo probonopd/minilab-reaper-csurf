@@ -10,6 +10,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Configure CMake
         run: cmake -S . -B build-x86_64 -DCMAKE_BUILD_TYPE=Release
@@ -33,6 +35,8 @@ jobs:
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Configure CMake
         run: cmake -S . -B build-aarch64 -DCMAKE_BUILD_TYPE=Release
