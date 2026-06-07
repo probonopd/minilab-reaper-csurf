@@ -56,13 +56,15 @@ std::vector<uint8_t> MiniLabReaperSurface::buildSysExDisconnect() const {
 
 std::vector<uint8_t> MiniLabReaperSurface::buildDisplayText(const std::string& line1,
                                                              const std::string& line2) const {
-  std::vector<uint8_t> body = {0x04, 0x02, 0x60, 0x1F, 0x02, 0x01, 0x00,
-                               0x01};
+  std::vector<uint8_t> body = {0x04, 0x02, 0x60, 0x1F, 0x02, 0x01, 0x00};
   const auto l1 = asciiTerminated(line1);
   const auto l2 = asciiTerminated(line2);
+
+  body.push_back(0x01);
   body.insert(body.end(), l1.begin(), l1.end());
   body.push_back(0x02);
   body.insert(body.end(), l2.begin(), l2.end());
+
   return makeSysExPacket(body);
 }
 

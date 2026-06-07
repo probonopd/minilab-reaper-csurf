@@ -1,6 +1,5 @@
 #include "minilab_reaper_plugin.hpp"
 
-#include <algorithm>
 #include <cctype>
 #include <cstdio>
 #include <cstring>
@@ -166,8 +165,13 @@ bool collectMidiPortCandidates(const std::vector<std::string>& hints, std::vecto
 
   out_indices->clear();
   const int count = want_input ? GetNumMIDIInputs() : GetNumMIDIOutputs();
-  std::vector<std::pair<int, int>> scored_candidates;
-  const bool prefer_explicit_display = std::find(hints.begin(), hints.end(), "0,3") != hints.end();
+  bool prefer_explicit_display = false;
+  for (const std::string& hint : hints) {
+    if (hint == "0,3") {
+      prefer_explicit_display = true;
+      break;
+    }
+  }
 
   for (int i = 0; i < count; ++i) {
     char buf[256] = {};
@@ -191,19 +195,36 @@ bool collectMidiPortCandidates(const std::vector<std::string>& hints, std::vecto
       continue;
     }
 
-    int score = 0;
     if (prefer_explicit_display && containsIgnoreCase(buf, "0,3")) {
-      score += 100;
+      out_indices->push_back(i);
     }
-    scored_candidates.emplace_back(i, score);
   }
 
-  std::stable_sort(scored_candidates.begin(), scored_candidates.end(), [](const auto& lhs, const auto& rhs) {
-    return lhs.second > rhs.second;
-  });
+  if (!out_indices->empty()) {
+    return true;
+  }
 
-  for (const auto& candidate : scored_candidates) {
-    out_indices->push_back(candidate.first);
+  for (int i = 0; i < count; ++i) {
+    char buf[256] = {};
+    bool ok = false;
+
+    if (want_input) {
+      if (GetMIDIInputNameNoAlias && GetMIDIInputNameNoAlias(i, buf, sizeof(buf))) {
+        ok = true;
+      } else if (GetMIDIInputName) {
+        ok = GetMIDIInputName(i, buf, sizeof(buf));
+      }
+    } else {
+      if (GetMIDIOutputNameNoAlias && GetMIDIOutputNameNoAlias(i, buf, sizeof(buf))) {
+        ok = true;
+      } else if (GetMIDIOutputName) {
+        ok = GetMIDIOutputName(i, buf, sizeof(buf));
+      }
+    }
+
+    if (ok && matchesMidiPortName(buf, hints)) {
+      out_indices->push_back(i);
+    }
   }
 
   return !out_indices->empty();
@@ -281,6 +302,15 @@ void selectTrackRelative(int delta) {
     }
     refreshDisplay(tr);
   }
+}
+
+void logMidiInputLimitation() {
+  std::fprintf(stdout,
+               "[minilab-midi] NOTE: REAPER's native CreateMIDIInput path is documented as only reliable for devices not already opened in prefs/MIDI. If the MiniLab is selected as an REAPER input, IN-note logging will be limited by that REAPER API constraint.\n");
+  std::fflush(stdout);
+  std::fprintf(stderr,
+               "[minilab-midi] NOTE: REAPER's native CreateMIDIInput path is documented as only reliable for devices not already opened in prefs/MIDI. If the MiniLab is selected as an REAPER input, IN-note logging will be limited by that REAPER API constraint.\n");
+  std::fflush(stderr);
 }
 
 void ensureMidiOpen() {
@@ -580,6 +610,8 @@ REAPER_PLUGIN_DLL_EXPORT int REAPER_PLUGIN_ENTRYPOINT(REAPER_PLUGIN_HINSTANCE hI
   };
 
   log("[minilab-midi] plugin entry: opening MIDI ports\n");
+
+  minilab::logMidiInputLimitation();
 
   const bool found_input = minilab::findMidiPortByHints(
       {"minilab3", "arturia", "midi"},

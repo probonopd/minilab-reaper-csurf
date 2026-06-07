@@ -1,11 +1,12 @@
 # MiniLab 3 REAPER control-surface baseline
 
-This workspace now contains a small C++ implementation and TDD test harness for the MiniLab 3 control-surface logic described in the spec:
 
-- SysEx connect/disconnect helpers
-- display text packet generation
-- track/parameter/transport priority model
-- pad RGB and encoder/fader packet builders
+Work-in-progress MiniLab 3 control-surface logic described in the spec:
+
+
+## Showstopper
+
+When the MiniLab 3 is **also** selected as a MIDI input in REAPER's preferences (so that notes are recorded to tracks), `CreateMIDIInput` on the same device index either fails or returns a handle that delivers no events. The result is that the plugin cannot see incoming CC messages (encoder turns, button presses) or SysEx from the hardware while REAPER owns the port.
 
 ## Build
 
@@ -13,10 +14,5 @@ This workspace now contains a small C++ implementation and TDD test harness for 
 cmake -S . -B build
 cmake --build build
 ./build/minilab_reaper_surface_tests
+sudo cp build/reaper_csurf_minilab.so /opt/REAPER/Plugins/reaper_csurf_minilab.so
 ```
-
-## Notes
-
-The portable logic in `src/minilab_reaper_surface.cpp` is designed to be the core of a future REAPER native control-surface extension. The full REAPER SDK integration can be placed on top of this base once the official SDK headers are copied into the plugin build environment.
-
-For live verification with the real MiniLab hardware, use the clean launcher in `devel/run_reaper_clean.sh`. It removes REAPER’s cached ALSA MIDI hardware files before launch, which avoids the stale `alsa_rawmidi: ... (-16)` busy-device errors that can block the input path when the cache is out of date.

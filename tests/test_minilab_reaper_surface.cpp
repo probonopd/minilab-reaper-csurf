@@ -41,6 +41,11 @@ int main() {
   const auto display = surface.buildDisplayText("Track 07", "Lead Vocal");
   ok &= expect_eq("display packet header", std::vector<uint8_t>(display.begin(), display.begin() + 6),
                   std::vector<uint8_t>{0xF0, 0x00, 0x20, 0x6B, 0x7F, 0x42});
+  ok &= expect_eq("display packet body",
+                  std::vector<uint8_t>(display.begin() + 6, display.end() - 1),
+                  std::vector<uint8_t>{0x04, 0x02, 0x60, 0x1F, 0x02, 0x01, 0x00,
+                                       0x01, 'T', 'r', 'a', 'c', 'k', ' ', '0', '7', 0x00,
+                                       0x02, 'L', 'e', 'a', 'd', ' ', 'V', 'o', 'c', 'a', 'l', 0x00});
 
   surface.setTrackContext("Track 07", "Lead Vocal");
   surface.setParameterContext("Volume", "-6.3 dB");
